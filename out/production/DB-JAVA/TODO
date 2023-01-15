@@ -1,0 +1,67 @@
+CONT:
+    CNP (acesta va fi id-ul)
+    nume
+    prenume
+    adresa
+    nr tlf
+    email
+    cont IBAN??
+    nr contract(nr matricol)
+
+
+TIP UTILIZATOR:
+    StudentGui :
+        date personale
+        date cursuri
+        alocare activitati
+
+    Profesor:
+        date personale
+        date cursuri
+
+    Admin:
+        date persoanale + ale altora
+        date cursuri
+        alocare activitati studenti + profesori
+
+
+StudentGui:
+    + an studiu
+    nr de ore pe care trebuie sa le sustina
+    activitati
+
+Profesor:
+    +cursuri predate
+    max de ore
+    min de ore
+    departament
+
+Curs:
+    profesori care le predau
+    tipuri de activitati
+    descriere
+    nr max de studenti
+    recursiv intre 2 dati
+
+    PROFESORUL TREBUIE SA STABILEASCA IMPARTIREA PROCENTUALA PE TIPUL DE ACTIVITATI
+    PRIN URMARE ACESTEA VOR FI REPREZENTATE PRINTR-O LITERA(s, l , c) FIECARE AVAND UN PROCENT
+
+Grup de studiu:
+    id
+    curs
+    student id
+    min stud
+    max stud
+    data
+    ora
+    durata
+
+    DACA NUMARUL MIN DE STUD NU E ATINS, ACTIVITATE SE ANULEAZA (E STEARSA DIN BD)
+
+
+    log in
+    panel
+    insert
+    delete
+    update
+    role
