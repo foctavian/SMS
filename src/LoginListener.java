@@ -61,7 +61,7 @@ public  class LoginListener  implements ActionListener {
                 }
             }
             if(!found){
-                JOptionPane.showMessageDialog(login.getLogin(), "Credentiale incorecte!");
+                JOptionPane.showMessageDialog(login.getLogin(), "Credentiale incorecte!","Error!", JOptionPane.ERROR_MESSAGE);
             }
 
 

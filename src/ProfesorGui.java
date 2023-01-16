@@ -1,5 +1,7 @@
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.sql.*;
 import java.time.LocalTime;
 import java.util.Vector;
@@ -8,6 +10,7 @@ public class ProfesorGui {
     Connection connection = new Driver().getConn();
     int profesorId;
 
+    JComboBox<String> cb;
     private JFrame profesor ;
 
 
@@ -17,8 +20,7 @@ public class ProfesorGui {
         profesor.setVisible(false);
 
     }
-    //TO DO: evaluarea informatiilor legate de un profesor : la ce cursuri preda, nume, prenume, va fi folosita
-    // pentru a afisa dupa log in activitatile din ziua curenta
+
     public void evaluateInfo() throws SQLException {
 
     }
@@ -37,6 +39,32 @@ public class ProfesorGui {
         cursuri.setFillsViewportHeight(true);
         mainPanel.add(new JScrollPane(cursuri));
 
+        JMenu menu = new JMenu("Catalog");
+        JMenuBar bar = new JMenuBar();
+        JMenuItem descarcare = new JMenuItem("Descarcare");
+        menu.add(descarcare);
+        bar.add(menu);
+
+        JMenu menuCurs = new JMenu("Cursuri");
+        JMenuItem setareProcent  = new JMenuItem("Setare procentaje");
+        JMenuItem renuntareCurs = new JMenuItem("Renuntare");
+        JMenuItem inrolareCurs = new JMenuItem("Predare");
+        setareProcent.addActionListener(new ProffesorSetPercentageListener(this));
+        renuntareCurs.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try{
+                    buildCourseList();
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+        menuCurs.add(setareProcent);
+        menuCurs.add(renuntareCurs);
+        menuCurs.add(inrolareCurs);
+        bar.add(menuCurs);
+        profesor.setJMenuBar(bar);
         profesor.setResizable(false);
         profesor.setContentPane(mainPanel);
         profesor.setVisible(true);
@@ -150,6 +178,45 @@ public class ProfesorGui {
         }
     }
 
+    public Vector<String> retrieveData(ResultSet rs) throws SQLException {
+        Vector<String> data = new Vector<>();
+        ResultSetMetaData meta = rs.getMetaData();
+        int count = meta.getColumnCount();
+
+        for(int i=1;i<=count;i++){
+            if(rs.next())
+                data.add(rs.getString("descriere"));
+        }
+        return data;
+    }
+    public void buildCourseList() throws SQLException {
+        JFrame f = new JFrame();
+        JPanel panel1 = new JPanel();
+        JPanel panel2 = new JPanel();
+        JPanel panel3 = new JPanel();
+        JButton btn ;
+        PreparedStatement prep = connection.prepareStatement("select * from curs where  exists(select * from intermediar_prof_curs where ID_PROFESOR=? and intermediar_PROF_curs.ID_CURS = curs.curs_id)");
+        prep.setInt(1,profesorId);
+        ResultSet rs = prep.executeQuery();
+        Vector<String>cursVector = retrieveData(rs);
+        this.cb = new JComboBox<>(cursVector);
+        cb.setLayout(null);
+        cb.setBounds(50, 75, 200, 30);
+        panel1.add(cb);
+        btn = new JButton("Inscriere");
+        btn.setLayout(null);
+        btn.addActionListener(new ProffessorDropCourseBtn(this));
+        panel2.add(btn);
+        panel3.add(panel1);
+        panel3.add(panel2);
+
+        f.add(panel3);
+        f.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        f.setSize(300, 300);
+        f.setVisible(true);
+        f.setLocationRelativeTo(null);
+    }
+
     public static DefaultTableModel buildTableModel(ResultSet rs)
             throws SQLException {
 
@@ -171,7 +238,39 @@ public class ProfesorGui {
         }
 
         return new DefaultTableModel(data, columnNames);
-
     }
 
+    public int getCourseId(String nume){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("select curs_id from curs where nume = ?");
+            prstm.setString(1,nume);
+            ResultSet rs = prstm.executeQuery();
+            if(rs.next()){
+                return(rs.getInt("curs_id"));
+            }
+        }catch(SQLException ex){
+            ex.printStackTrace();
+            return -1;
+        }
+        return -1;
+    }
+
+    public int getCourseId(String description, int def){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("select curs_id from curs where descriere = ?");
+            prstm.setString(1,description);
+            ResultSet rs = prstm.executeQuery();
+            if(rs.next()){
+                return(rs.getInt("curs_id"));
+            }
+        }catch(SQLException ex){
+            ex.printStackTrace();
+            return -1;
+        }
+        return -1;
+    }
+
+    public JComboBox<String> getCb() {
+        return cb;
+    }
 }
