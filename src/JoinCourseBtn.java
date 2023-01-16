@@ -105,7 +105,6 @@ public class JoinCourseBtn implements ActionListener {
             return -1;
         }
         return -1;
-
     }
 
     public boolean checkTimeTable() throws SQLException {

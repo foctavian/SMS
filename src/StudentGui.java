@@ -10,6 +10,7 @@ public class StudentGui  {
 
     JTable tableCursuri;
     private JComboBox<String> cb;
+    private JComboBox<String> cbd;
 
     StudentGui( int studentId) throws SQLException {
         this.studentId = studentId;
@@ -46,6 +47,7 @@ public class StudentGui  {
         student.setJMenuBar(bar);
 
         adaugareCurs.addActionListener(new JoinCourseGui(this));
+        renuntareCurs.addActionListener(new DropCourseGui(this));
         curs.add(adaugareCurs);
         curs.add(renuntareCurs);
         bar.add(curs);
@@ -145,7 +147,40 @@ public class StudentGui  {
         f.setLocationRelativeTo(null);
     }
 
+    public void buildDropCourse() throws SQLException {
+        JFrame f = new JFrame();
+        JPanel panel1 = new JPanel();
+        JPanel panel2 = new JPanel();
+        JPanel panel3 = new JPanel();
+        JButton btn ;
+        PreparedStatement prep = connection.prepareStatement("select * from curs where exists (select * from intermediar_stud_curs where ID_STUDENT = ? and intermediar_stud_curs.ID_CURS = curs.curs_id)");
+        prep.setInt(1,studentId);
+        ResultSet rs = prep.executeQuery();
+        Vector<String>cursVector = retrieveData(rs);
+        cbd = new JComboBox<>(cursVector);
+        cbd.setLayout(null);
+        cbd.setBounds(50, 75, 200, 30);
+        panel1.add(cbd);
+        btn = new JButton("Renuntare");
+        btn.setLayout(null);
+        btn.addActionListener(new DropCourseBtn(cursVector, studentId, this));
+        panel2.add(btn);
+        panel3.add(panel1);
+        panel3.add(panel2);
+        f.setVisible(true);
+
+        f.add(panel3);
+        f.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        f.setSize(300, 300);
+        f.setVisible(true);
+        f.setLocationRelativeTo(null);
+    }
+
     public JComboBox<String> getCb() {
         return cb;
+    }
+
+    public JComboBox<String> getCbd() {
+        return cbd;
     }
 }

@@ -9,6 +9,7 @@ public class StudentGui  {
     private final JFrame student ;
 
     JTable tableCursuri;
+    private JComboBox<String> cb;
 
     StudentGui( int studentId) throws SQLException {
         this.studentId = studentId;
@@ -71,7 +72,9 @@ public class StudentGui  {
         student.setVisible(true);
     }
 
-
+    public void setVisibility(boolean viz){
+        this.student.setVisible(viz);
+    }
 
     public int getStudentId() {
         return studentId;
@@ -118,7 +121,6 @@ public class StudentGui  {
         JPanel panel1 = new JPanel();
         JPanel panel2 = new JPanel();
         JPanel panel3 = new JPanel();
-        JComboBox<String> cb;
         JButton btn ;
         PreparedStatement prep = connection.prepareStatement("select * from curs where not exists(select * from intermediar_stud_curs where ID_STUDENT=? and intermediar_stud_curs.ID_CURS = curs.curs_id)");
         prep.setInt(1,studentId);
@@ -143,5 +145,7 @@ public class StudentGui  {
         f.setLocationRelativeTo(null);
     }
 
-
+    public JComboBox<String> getCb() {
+        return cb;
+    }
 }
