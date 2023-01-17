@@ -43,14 +43,12 @@ public  class LoginListener  implements ActionListener {
                             case 2: break;
                             case 3:
                                 profesorGui = new ProfesorGui(rs.getInt("ID_USER"));
-                                profesorGui.evaluateInfo();
                                 profesorGui.displayGUI();
                                 break;
                             case 4:
                                 int id = rs.getInt("ID_USER");
 
                                 studentGui = new StudentGui(id);
-                                studentGui.evaluateInfo();
                                 studentGui.displayGUI();
                                 break;
                             default: break;

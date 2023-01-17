@@ -1,9 +1,17 @@
+import com.opencsv.CSVWriter;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.sql.*;
 import java.time.LocalTime;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Vector;
 
 public class ProfesorGui {
@@ -25,9 +33,6 @@ public class ProfesorGui {
 
     }
 
-    public void evaluateInfo() throws SQLException {
-
-    }
 
     //da display la GUI
     public void displayGUI() throws SQLException {
@@ -49,7 +54,7 @@ public class ProfesorGui {
         descarcare.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-
+                writeToFile();
             }
         });
 
@@ -296,7 +301,6 @@ public class ProfesorGui {
         }
     }
 
-
     public int searchStudent(String nume, String prenume){
         try{
             PreparedStatement prstm = connection.prepareStatement("SELECT * FROM utilizator where nume = ? and prenume = ? and rol = ?");
@@ -313,6 +317,8 @@ public class ProfesorGui {
         }
         return -1;
     }
+
+
 
     public Vector<String> retrieveData(ResultSet rs) throws SQLException {
         Vector<String> data = new Vector<>();
@@ -359,6 +365,99 @@ public class ProfesorGui {
         f.setLocationRelativeTo(null);
     }
 
+
+    //cursul din interm_prof
+    //studentii din interm_stud cu tot cu note
+
+    public void writeToFile(){
+        File file = new File("src/catalog.csv");
+        try{
+            FileWriter output = new FileWriter(file);
+            CSVWriter writer = new CSVWriter(output);
+            Vector<Integer> cursuri = getCourses();
+            writer.writeNext(new String[]{"Nume", "Curs", "Seminar", "Laborator", "Examen", "Nota finala"});
+            for (Integer integer : cursuri) {
+                HashMap<Integer, HashMap<String, Integer>> studs = getAllStuds(integer);
+                HashMap<Integer, String> names = getAllNames(studs);
+                System.out.println(names.values());
+                String nume = names.values().toString();
+                String curs = getCourseName(integer);
+                String[] data = null;
+                for (Map.Entry<Integer, HashMap<String, Integer>> set :
+                        studs.entrySet()) {
+                    Vector<Integer> a = new Vector<>();
+                    for (Integer entry : set.getValue().values()) {
+                        a.add(entry);
+                    }
+                    data = new String[]{nume, curs, String.valueOf(a.get(0)),
+                            String.valueOf(a.get(1)), String.valueOf(a.get(2)), String.valueOf(a.get(3))};
+                }
+                writer.writeNext(data);
+            }
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public  HashMap<Integer, String> getAllNames( HashMap<Integer,  HashMap<String,Integer>> studs){
+        try{
+            HashMap<Integer, String> names = new HashMap<>();
+            for(Map.Entry<Integer, HashMap<String, Integer>> set:
+            studs.entrySet()){
+                PreparedStatement prstm = connection.prepareStatement("SELECT * FROM utilizator where ID_USER = ? and rol = ?");
+                prstm.setInt(1,set.getKey());
+                prstm.setInt(2,4);
+                ResultSet rs = prstm.executeQuery();
+                if(rs.next()){
+                    names.put(set.getKey(),rs.getString("nume")+" "
+                            +rs.getString("prenume"));
+                }
+            }
+            return names;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public HashMap<Integer,HashMap<String,Integer>> getAllStuds(int cursuri){
+        try{
+            HashMap<Integer, HashMap<String,Integer>> studs = new HashMap<>();
+                PreparedStatement prstm = connection.prepareStatement("SELECT * FROM intermediar_stud_curs where ID_CURS = ?");
+                prstm.setInt(1,cursuri);
+                ResultSet rs = prstm.executeQuery();
+
+                while(rs.next()){
+                    HashMap<String, Integer> note = new HashMap<>();
+                    note.put("Seminar", rs.getInt("SEMINAR"));
+                    note.put("Laborator", rs.getInt("LAB"));
+                    note.put("Examen", rs.getInt("EXAMEN"));
+                    note.put("Final", rs.getInt("FINAL"));
+                    studs.put(rs.getInt("ID_STUDENT"), note);
+                }
+            return studs;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public Vector<Integer> getCourses(){
+        try{
+            Vector<Integer> cursuri = new Vector<>();
+            PreparedStatement prstm = connection.prepareStatement("SELECT * FROM intermediar_prof_curs where ID_PROFESOR = ?");
+            prstm.setInt(1,profesorId);
+            ResultSet rs =  prstm.executeQuery();
+
+            while(rs.next()){
+                cursuri.add(rs.getInt("ID_CURS"));
+            }
+            return cursuri;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public void buildOPMark(){
         JTextField curs = new JTextField();
         JTextField nume = new JTextField();
@@ -395,6 +494,20 @@ public class ProfesorGui {
             }
         }
 
+    }
+
+    public String getCourseName(int cursId){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("SELECT * FROM curs where curs_id = ?");
+            prstm.setInt(1,cursId);
+            ResultSet rs = prstm.executeQuery();
+            if(rs.next()){
+                return rs.getString("nume");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
     }
 
     public static DefaultTableModel buildTableModel(ResultSet rs)
