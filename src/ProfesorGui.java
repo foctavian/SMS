@@ -10,6 +10,10 @@ public class ProfesorGui {
     Connection connection = new Driver().getConn();
     int profesorId;
 
+    public enum TYPE{
+        JOIN,
+        DROP
+    }
     JComboBox<String> cb;
     private JFrame profesor ;
 
@@ -30,7 +34,6 @@ public class ProfesorGui {
         ImageIcon icon  = new ImageIcon("resources/TeacherIcon.png");
         profesor.setIconImage(icon.getImage());
         JPanel mainPanel = new JPanel();
-        Statement statement = connection.createStatement();
         PreparedStatement prep = connection.prepareStatement("select* from intermediar_prof_curs left join curs on intermediar_prof_curs.ID_CURS = curs.curs_id where ID_PROFESOR = ?");
         prep.setInt(1,profesorId);
         ResultSet rs = prep.executeQuery();
@@ -54,12 +57,26 @@ public class ProfesorGui {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try{
-                    buildCourseList();
+                    buildCourseList("select * from curs where  exists(select * from intermediar_prof_curs where ID_PROFESOR=? and intermediar_PROF_curs.ID_CURS = curs.curs_id)"
+                            , TYPE.DROP.ordinal());
                 } catch (SQLException ex) {
                     ex.printStackTrace();
                 }
             }
         });
+
+        inrolareCurs.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try{
+                    buildCourseList("select * from curs where not exists(select * from intermediar_prof_curs where ID_PROFESOR=? and intermediar_PROF_curs.ID_CURS = curs.curs_id)"
+                            , TYPE.JOIN.ordinal());
+                }catch(SQLException ex){
+                    ex.printStackTrace();
+                }
+            }
+        });
+
         menuCurs.add(setareProcent);
         menuCurs.add(renuntareCurs);
         menuCurs.add(inrolareCurs);
@@ -138,6 +155,37 @@ public class ProfesorGui {
         }
     }
 
+
+    public boolean checkTimeTable(Date d, Time t){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("select * from curs");
+            ResultSet rs= prstm.executeQuery();
+            while(rs.next()){
+                int cursId = rs.getInt("curs_id");
+                int timeId = rs.getInt("TIME_TABLE");
+                prstm = connection.prepareStatement("select * from time_table where ID_TT = ?");
+                prstm.setInt(1,timeId);
+                ResultSet temp = prstm.executeQuery();
+                while(temp.next()){
+                    if(temp.getDate("DATE_A").before(d) &&
+                    temp.getDate("DATE_B").after(d)){
+                        Time actual = temp.getTime("ORA");
+                        t = Time.valueOf(t.toLocalTime());
+                        LocalTime a = actual.toLocalTime();
+                        LocalTime b = t.toLocalTime();
+                        if(a.minusHours(2).isBefore(b) || a.plusHours(2).isAfter(b)){
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
     public Time parseTime( LocalTime hour){
         return new Time(hour.getHour(), hour.getMinute(), hour.getSecond());
     }
@@ -189,13 +237,13 @@ public class ProfesorGui {
         }
         return data;
     }
-    public void buildCourseList() throws SQLException {
+    public void buildCourseList(String sql, int def) throws SQLException {
         JFrame f = new JFrame();
         JPanel panel1 = new JPanel();
         JPanel panel2 = new JPanel();
         JPanel panel3 = new JPanel();
         JButton btn ;
-        PreparedStatement prep = connection.prepareStatement("select * from curs where  exists(select * from intermediar_prof_curs where ID_PROFESOR=? and intermediar_PROF_curs.ID_CURS = curs.curs_id)");
+        PreparedStatement prep = connection.prepareStatement(sql);
         prep.setInt(1,profesorId);
         ResultSet rs = prep.executeQuery();
         Vector<String>cursVector = retrieveData(rs);
@@ -203,15 +251,21 @@ public class ProfesorGui {
         cb.setLayout(null);
         cb.setBounds(50, 75, 200, 30);
         panel1.add(cb);
-        btn = new JButton("Inscriere");
+        btn = new JButton();
         btn.setLayout(null);
-        btn.addActionListener(new ProffessorDropCourseBtn(this));
+        if(def == TYPE.JOIN.ordinal()) {
+            btn.setText("Predare Curs");
+            btn.addActionListener(new ProfessorJoinCourseBtn(this));
+        }else{
+            btn.setText("Renuntare Curs");
+            btn.addActionListener(new ProffessorDropCourseBtn(this));
+
+        }
         panel2.add(btn);
         panel3.add(panel1);
         panel3.add(panel2);
 
         f.add(panel3);
-        f.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         f.setSize(300, 300);
         f.setVisible(true);
         f.setLocationRelativeTo(null);
