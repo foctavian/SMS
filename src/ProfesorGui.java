@@ -44,7 +44,23 @@ public class ProfesorGui {
 
         JMenu menu = new JMenu("Catalog");
         JMenuBar bar = new JMenuBar();
-        JMenuItem descarcare = new JMenuItem("Descarcare");
+        JMenuItem descarcare = new JMenuItem("Descarcare catalog");
+        JMenuItem notare = new JMenuItem("Adaugare nota");
+        descarcare.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+            }
+        });
+
+        notare.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                buildOPMark();
+            }
+        });
+
+        menu.add(notare);
         menu.add(descarcare);
         bar.add(menu);
 
@@ -226,6 +242,78 @@ public class ProfesorGui {
         }
     }
 
+    //date luate din option pane
+    public boolean checkStudCurs(String curs, String nume, String prenume, int seminar, int lab, int examen){
+        try{
+            //VERIFIC DACA PROFESUL PREDA LA ACEST CURS
+            int cursId = getCourseId(curs);
+            if(checkCourse(cursId)){
+                //VERIFIC DACA STUDENTUL E INSCRIS LA CURS
+                int student = searchStudent(nume, prenume);
+                PreparedStatement prstm = connection.prepareStatement("SELECT * FROM intermediar_stud_curs where ID_STUDENT = ? and ID_CURS = ?");
+                prstm.setInt(1,student);
+                prstm.setInt(2,cursId);
+                ResultSet rs = prstm.executeQuery();
+
+                if(rs.next()){
+                    setMark(cursId, student, seminar, lab, examen);
+                    return true;
+                }else{
+                    JOptionPane.showMessageDialog(null, "Studentul"+ nume +" "+prenume+" nu este inscris  la acest curs",
+                            "ERROR!", JOptionPane.ERROR_MESSAGE);
+                    return false;
+                }
+            }
+        }catch(SQLException e){
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public void setMark(int curs, int student,int seminar, int lab, int examen){
+        try{
+            int semP=0, labP=0,  examP=0;
+            PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM curs where curs_id = ?");
+            preparedStatement.setInt(1,curs);
+            ResultSet rs = preparedStatement.executeQuery();
+            if(rs.next()) {
+                semP = rs.getInt("seminar");
+                labP = rs.getInt("laborator");
+                examP = rs.getInt("examen_curs");
+            }
+            int finalGrade = (int)((float)seminar * ((float)semP/100) + (float)lab*((float)labP /100) + (float)examen*((float)examP/100));
+            PreparedStatement prstm = connection.prepareStatement("update intermediar_stud_curs set SEMINAR = ?, LAB=?, EXAMEN = ?,FINAL = ? " +
+                    "where ID_CURS = ? and ID_STUDENT = ?");
+            prstm.setInt(1,seminar);
+            prstm.setInt(2,lab);
+            prstm.setInt(3,examen);
+            prstm.setInt(4, finalGrade);
+            prstm.setInt(5,curs);
+            prstm.setInt(6,student);
+            prstm.executeUpdate();
+        }catch(SQLException e){
+            e.printStackTrace();
+        }
+    }
+
+
+    public int searchStudent(String nume, String prenume){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("SELECT * FROM utilizator where nume = ? and prenume = ? and rol = ?");
+            prstm.setString(1, nume);
+            prstm.setString(2,prenume);
+            prstm.setInt(3, 4);
+            ResultSet rs=  prstm.executeQuery();
+
+            if(rs.next()){
+                return rs.getInt("ID_USER");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return -1;
+    }
+
     public Vector<String> retrieveData(ResultSet rs) throws SQLException {
         Vector<String> data = new Vector<>();
         ResultSetMetaData meta = rs.getMetaData();
@@ -269,6 +357,44 @@ public class ProfesorGui {
         f.setSize(300, 300);
         f.setVisible(true);
         f.setLocationRelativeTo(null);
+    }
+
+    public void buildOPMark(){
+        JTextField curs = new JTextField();
+        JTextField nume = new JTextField();
+        JTextField prenume = new JTextField();
+        JTextField seminar = new JTextField();
+        JTextField lab = new JTextField();
+        JTextField examen = new JTextField();
+
+        Object[] fields = {
+                "Curs", curs,
+                "Nume",nume,
+                "Prenume",prenume,
+                "Seminar",seminar,
+                "Laborator",lab,
+                "Examen",examen
+        };
+        int option  = JOptionPane.showConfirmDialog(null, fields, "Notare",JOptionPane.OK_CANCEL_OPTION );
+
+        if(option == JOptionPane.OK_OPTION){
+            String cursNume = curs.getText();
+            String numeStud = nume.getText();
+            String prenumeStud = prenume.getText();
+            int s = Integer.parseInt(seminar.getText());
+            int l = Integer.parseInt(lab.getText());
+            int e = Integer.parseInt(examen.getText());
+
+            if(s < 0 || s > 10 || l < 0 || l > 10 || e <0 || e > 10){
+                JOptionPane.showMessageDialog(null, "ERROR!", "ERROR!", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            if(!checkStudCurs(cursNume, numeStud, prenumeStud, s, l, e)){
+                JOptionPane.showMessageDialog(null, "ERROR!", "ERROR!", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+        }
+
     }
 
     public static DefaultTableModel buildTableModel(ResultSet rs)

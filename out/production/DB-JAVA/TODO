@@ -65,3 +65,17 @@ Grup de studiu:
     delete
     update
     role
+
+
+    alter table proiectbd.intermediar_stud_curs
+        add SEMINAR INT default 0 null;
+
+    alter table proiectbd.intermediar_stud_curs
+        add LAB INT default 0 null;
+
+    alter table proiectbd.intermediar_stud_curs
+        add EXAMEN INT default 0 null;
+
+    alter table proiectbd.intermediar_stud_curs
+        add FINAL INT default 0 null;
+
