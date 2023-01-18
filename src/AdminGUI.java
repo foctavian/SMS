@@ -3,7 +3,6 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.*;
-import java.util.concurrent.locks.ReadWriteLock;
 
 public class AdminGUI {
     Connection connection = new Driver().getConn();
@@ -435,6 +434,4 @@ public class AdminGUI {
         }
         return false;
     }
-
-
 }

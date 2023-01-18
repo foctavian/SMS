@@ -80,10 +80,6 @@ Grup de studiu:
         add FINAL INT default 0 null;
 
 
-
-    admin alocare prof
-    admin dezalocare prof
-
     student refactor grup de studiu
     student algoritm recomandare
     student alocare profesor grup de studiu

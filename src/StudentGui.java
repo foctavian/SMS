@@ -1,6 +1,9 @@
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.sql.*;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Vector;
 
@@ -14,7 +17,7 @@ public class StudentGui  {
 
     StudentGui( int studentId) throws SQLException {
         this.studentId = studentId;
-        student = new GUI(800, 600).createFrame(studentId);
+        student = new GUI(900, 600).createFrame(studentId);
         student.setVisible(false);
     }
 
@@ -61,9 +64,36 @@ public class StudentGui  {
         grup.add(inscriereGrup);
         grup.add(renuntareGrup);
         grup.add(creareGrup);
-        inscriereGrup.addActionListener(new JoinGSGUI(this));
-        creareGrup.addActionListener(new CreateGSListener(this));
-        renuntareGrup.addActionListener(new DropGSGUI(this));
+        inscriereGrup.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    buildJoinGS();
+                } catch (SQLException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        });
+        creareGrup.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    buildCreateGS();
+                } catch (SQLException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        });
+        renuntareGrup.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    buildDropGS();
+                } catch (SQLException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        });
         bar.add(grup);
 
         Statement statement = connection.createStatement();
@@ -81,10 +111,6 @@ public class StudentGui  {
 
     public void setVisibility(boolean viz){
         this.student.setVisible(viz);
-    }
-
-    public int getStudentId() {
-        return studentId;
     }
 
     public static DefaultTableModel buildTableModel(ResultSet rs)
@@ -186,7 +212,7 @@ public class StudentGui  {
         JTextField max = new JTextField();
         JTextField durata = new JTextField();
         JTextField ora = new JTextField();
-        JTextField data = new JTextField();
+        JTextField data = new JTextField("FORMAT : Y-M-D");
 
         Object[] fields={
             "Curs", curs,
@@ -204,18 +230,35 @@ public class StudentGui  {
             int maxim = Integer.parseInt(max.getText());
             if(minim > maxim){
                 JOptionPane.showMessageDialog(null, "Error!", "Error!", JOptionPane.ERROR_MESSAGE);
+                return;
             }
             int d = Integer.parseInt(durata.getText());
             Time h = Time.valueOf(LocalTime.parse(ora.getText()));
-            Date date = new Date(1);
-
+            Date date = Date.valueOf(data.getText());
+            Date temp =Date.valueOf(LocalDate.now());
+            if(date.before(temp)){
+                JOptionPane.showMessageDialog(null, "Error!", "Error!", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            else if(h.before(Time.valueOf(LocalTime.now()))){
+                JOptionPane.showMessageDialog(null, "Error!", "Error!", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
             PreparedStatement prstm = connection.prepareStatement("select * from curs where nume = ?");
             prstm.setString(1, numeCurs);
             ResultSet rs = prstm.executeQuery();
             if(rs.next()){
                 int id = rs.getInt("curs_id");
-                GrupDeStudiu temp = new GrupDeStudiu(id, minim, maxim, h, date, d);
-                temp.create();
+
+                prstm = connection.prepareStatement("INSERT INTO grup_studiu(CURS,MIN,MAX,DATE_TIME,ORA,DURATA,CONTOR)" +
+                        "values(?,?,?,?,?,?,1)");
+                prstm.setInt(1,id);
+                prstm.setInt(2,minim);
+                prstm.setInt(3,maxim);
+                prstm.setDate(4, date);
+                prstm.setTime(5, h);
+                prstm.setInt(6,d);
+                prstm.executeUpdate();
 
                 prstm = connection.prepareStatement("select * from grup_studiu where CURS = ?");
                 prstm.setInt(1,id);
@@ -242,23 +285,77 @@ public class StudentGui  {
         JPanel panel3 = new JPanel();
         JButton btn ;
         PreparedStatement prep = connection.prepareStatement
-                ("select * from curs where not exists(select * from intermediar_stud_gs where ID_STUD = ? and intermediar_stud_gs.ID_GS = curs.curs_id)");
+                ("select * from curs where exists(select * from intermediar_stud_curs where ID_STUDENT = ? and curs_id  = ID_CURS);");
         prep.setInt(1,studentId);
         ResultSet rs = prep.executeQuery();
-        Vector<String>cursVector = retrieveData(rs);
-        cb = new JComboBox<>(cursVector);
+        Vector<Integer>cursVector = new Vector<>();
+        //toate cursurile la care sunt inscris
+        while(rs.next()){
+            cursVector.add(rs.getInt("curs_id"));
+        }
+        Vector<String>gsVector = new Vector<>();
+        //pentru fiecare curs la care sunt inscris
+        for(Integer i:cursVector) {
+            //verific daca exista un grup de studiu
+            prep = connection.prepareStatement("SELECT * FROM grup_studiu WHERE CURS = ?");
+            prep.setInt(1,i);
+            ResultSet result = prep.executeQuery();
+            gsVector.clear();
+            if(result.next()){
+                int curs = result.getInt("CURS");
+                if(!checkEnrollmentGS(curs)) {
+                    gsVector.add(getCourseName(curs));
+                }
+            }
+        }
+        cb = new JComboBox<>(gsVector);
         cb.setLayout(null);
         cb.setBounds(50, 75, 200, 30);
         panel1.add(cb);
-        btn = new JButton("Inscriere grup de studiu");
+        btn = new JButton("Inscriere");
         btn.setLayout(null);
-        btn.addActionListener(new JoinGSListener());
+        btn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try{
+                    Object temp = cb.getSelectedItem();
+                    String curs = null;
+                    if(temp!= null){
+                        curs = temp.toString();
+                    }
+                    int cursId = getCourseId(curs,1);
+                    int gsId = checkCourse(cursId);
+                    if(gsId != -1){
+                        PreparedStatement prstm = connection.prepareStatement("INSERT INTO intermediar_stud_gs(ID_GS, ID_STUD)" +
+                                "values(?,?)");
+                        prstm.setInt(1,gsId);
+                        prstm.setInt(2,studentId);
+                        prstm.executeUpdate();
+                        prstm = connection.prepareStatement("SELECT * FROM grup_studiu where ID_GS = ?");
+                        prstm.setInt(1,gsId);
+                        ResultSet result = prstm.executeQuery();
+                        int contor = 0;
+                        if(result.next()) {
+                            contor = result.getInt("CONTOR");
+                        }
+                        prstm = connection.prepareStatement("UPDATE grup_studiu SET CONTOR=? WHERE ID_GS = ?");
+                        prstm.setInt(1,contor+1);
+                        prstm.setInt(2,gsId);
+                        prstm.executeUpdate();
+                    }
+
+                    f.dispose();
+                    buildJoinGS();
+                } catch (SQLException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        });
         panel2.add(btn);
         panel3.add(panel1);
         panel3.add(panel2);
 
         f.add(panel3);
-        f.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         f.setSize(300, 300);
         f.setVisible(true);
         f.setLocationRelativeTo(null);
@@ -292,6 +389,84 @@ public class StudentGui  {
         f.setSize(300, 300);
         f.setVisible(true);
         f.setLocationRelativeTo(null);
+    }
+
+    public int getCourseId(String nume){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("select curs_id from curs where nume = ?");
+            prstm.setString(1,nume);
+            ResultSet rs = prstm.executeQuery();
+            if(rs.next()){
+                return(rs.getInt("curs_id"));
+            }
+        }catch(SQLException ex){
+            ex.printStackTrace();
+            return -1;
+        }
+        return -1;
+    }
+
+    public int getCourseId(String des, int x){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("select curs_id from curs where descriere = ?");
+            prstm.setString(1,des);
+            ResultSet rs = prstm.executeQuery();
+            if(rs.next()){
+                return(rs.getInt("curs_id"));
+            }
+        }catch(SQLException ex){
+            ex.printStackTrace();
+            return -1;
+        }
+        return -1;
+    }
+
+    public String getCourseName(int id){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("select *from curs where curs_id = ?");
+            prstm.setInt(1,id);
+            ResultSet rs = prstm.executeQuery();
+            if(rs.next()){
+                return(rs.getString("descriere"));
+            }
+        }catch(SQLException ex){
+            ex.printStackTrace();
+            return null;
+        }
+        return null;
+    }
+    public int checkCourse(int cursId){
+        try{
+            PreparedStatement prstm =connection.prepareStatement("SELECT * FROM grup_studiu where CURS = ?");
+            prstm.setInt(1,cursId);
+            ResultSet rs = prstm.executeQuery();
+            if(rs.next()){
+                if(rs.getInt("MAX") > rs.getInt("CONTOR")) {
+                    return rs.getInt("ID_GS");
+                }else{
+                    return -1;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return  -1;
+    }
+
+    public boolean checkEnrollmentGS(int id){
+        try{
+            int gs = checkCourse(id);
+            PreparedStatement prstm = connection.prepareStatement("SELECT * FROM intermediar_stud_gs WHERE ID_STUD = ? AND ID_GS = ?");
+            prstm.setInt(1,studentId);
+            prstm.setInt(2,gs);
+            ResultSet rs = prstm.executeQuery();
+            if(rs.next()){
+                return true;
+            }
+            return false;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public JComboBox<String> getCb() {
