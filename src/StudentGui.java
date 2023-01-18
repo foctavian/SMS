@@ -196,14 +196,14 @@ public class StudentGui  {
                 "Data", data,
                 "Ora", ora
         };
-        int option  = JOptionPane.showConfirmDialog(null, fields, "test",JOptionPane.OK_CANCEL_OPTION );
+        int option  = JOptionPane.showConfirmDialog(null, fields, "Creare grup studiu",JOptionPane.OK_CANCEL_OPTION );
 
         if(option == JOptionPane.OK_OPTION){
             String numeCurs = curs.getText();
             int minim = Integer.parseInt(min.getText());
             int maxim = Integer.parseInt(max.getText());
             if(minim > maxim){
-                JOptionPane.showMessageDialog(null, "Eroare");
+                JOptionPane.showMessageDialog(null, "Error!", "Error!", JOptionPane.ERROR_MESSAGE);
             }
             int d = Integer.parseInt(durata.getText());
             Time h = Time.valueOf(LocalTime.parse(ora.getText()));
@@ -301,6 +301,4 @@ public class StudentGui  {
     public JComboBox<String> getCbd() {
         return cbd;
     }
-
-
 }

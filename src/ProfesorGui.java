@@ -176,7 +176,6 @@ public class ProfesorGui {
         }
     }
 
-
     public boolean checkTimeTable(Date d, Time t){
         try{
             PreparedStatement prstm = connection.prepareStatement("select * from curs");
@@ -379,7 +378,6 @@ public class ProfesorGui {
             for (Integer integer : cursuri) {
                 HashMap<Integer, HashMap<String, Integer>> studs = getAllStuds(integer);
                 HashMap<Integer, String> names = getAllNames(studs);
-                System.out.println(names.values());
                 String nume = names.values().toString();
                 String curs = getCourseName(integer);
                 String[] data = null;

@@ -8,6 +8,7 @@ import java.sql.Statement;
 public  class LoginListener  implements ActionListener {
     private static ProfesorGui profesorGui;
     private static StudentGui studentGui;
+    private static AdminGUI adminGUI;
     private static LoginGui login;
     private boolean found ;
     LoginListener(LoginGui login) {
@@ -39,8 +40,14 @@ public  class LoginListener  implements ActionListener {
                         login.setVisibiliy(false);
                         int role = rs.getInt("rol");
                         switch(role){
-                            case 1: break;
-                            case 2: break;
+                            case 1:
+                                adminGUI = new AdminGUI(rs.getInt("ID_USER"));
+                                adminGUI.displayGUI();
+                                break;
+                            case 2:
+                                adminGUI = new AdminGUI(rs.getInt("ID_USER"));
+                                adminGUI.displayGUI();
+                                break;
                             case 3:
                                 profesorGui = new ProfesorGui(rs.getInt("ID_USER"));
                                 profesorGui.displayGUI();
