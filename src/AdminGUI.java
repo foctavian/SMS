@@ -60,6 +60,21 @@ public class AdminGUI {
                 buildCreateCourse();
             }
         });
+
+        adaugareProfesor.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                buildAllocateProf();
+            }
+        });
+
+        stergereProfesor.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                buildDeallocateProf();
+            }
+        });
+
         menuCurs.add(creareCurs);
         menuCurs.add(cautareCurs);
         menuCurs.add(adaugareProfesor);
@@ -148,6 +163,101 @@ public class AdminGUI {
         }
     }
 
+    public void buildDeallocateProf(){
+        try{
+            JTextField nume = new JTextField();
+            JTextField prenume = new JTextField();
+            JTextField curs = new JTextField();
+
+            Object fields[] ={
+                    "Nume", nume,
+                    "Prenume", prenume,
+                    "Curs" ,curs
+            };
+            Object[] option = {"Dezalocare","Cancel"};
+
+            int o = JOptionPane.showOptionDialog(null, fields,"Dezalocare profesor",
+                    JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE,null,option, option[0]);
+
+            if(o == JOptionPane.OK_OPTION){
+                String n = nume.getText();
+                String p = prenume.getText();
+                String c = curs.getText();
+                deallocateProf(n,p,c);
+            }
+        } catch (HeadlessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void buildAllocateProf(){
+        try{
+            JTextField nume = new JTextField();
+            JTextField prenume = new JTextField();
+            JTextField curs = new JTextField();
+
+            Object fields[] ={
+                    "Nume", nume,
+                    "Prenume", prenume,
+                    "Curs" ,curs
+            };
+            Object[] option = {"Alocare","Cancel"};
+
+            int o = JOptionPane.showOptionDialog(null, fields,"Alocare profesor",
+                    JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE,null,option, option[0]);
+
+            if(o == JOptionPane.OK_OPTION){
+                String n = nume.getText();
+                String p = prenume.getText();
+                String c = curs.getText();
+                allocateProf(n,p,c);
+            }
+        } catch (HeadlessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void deallocateProf(String nume, String prenume, String curs){
+        try{
+            int cursId = checkCourse(curs);
+            int id = checkUser(nume, prenume);
+            if(id!=-1 && cursId!=-1){
+                PreparedStatement prstm = connection.prepareStatement("DELETE FROM intermediar_prof_curs where ID_PROFESOR = ? AND ID_CURS = ?");
+                prstm.setInt(1,id);
+                prstm.setInt(2,cursId);
+                prstm.executeUpdate();
+                JOptionPane.showMessageDialog(null, "Profesorul " +nume+" "+prenume+" a fost dezalocat cu succes de la" +
+                        "cursul "+curs+"!","Dezalocare profesor",JOptionPane.PLAIN_MESSAGE);
+            }else{
+                JOptionPane.showMessageDialog(null, "Profesorul " +nume+" "+prenume+" nu a putut fi dezalocat de la" +
+                        " cursul "+curs+"!","Dezalocare profesor",JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void allocateProf(String nume, String prenume, String curs){
+        try{
+            int cursId = checkCourse(curs);
+            int id = checkUser(nume, prenume);
+            if(id!=-1 && cursId!=-1){
+                PreparedStatement prstm = connection.prepareStatement("INSERT INTO intermediar_prof_curs(ID_PROFESOR,ID_CURS)" +
+                        "values(?,?)");
+                prstm.setInt(1,id);
+                prstm.setInt(2,cursId);
+                prstm.executeUpdate();
+                JOptionPane.showMessageDialog(null, "Profesorul " +nume+" "+prenume+" a fost alocat cu succes la" +
+                        "cursul "+curs+"!","Alocare profesor",JOptionPane.PLAIN_MESSAGE);
+            }else{
+                JOptionPane.showMessageDialog(null, "Profesorul " +nume+" "+prenume+" nu a putut fi alocat la" +
+                        " cursul "+curs+"!","Alocare profesor",JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public boolean createCourse(String nume, int max, String des){
         try{
             PreparedStatement prstm = connection.prepareStatement("INSERT INTO curs(nume,max,descriere,TIME_TABLE)" +
@@ -161,6 +271,21 @@ public class AdminGUI {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public int checkCourse(String des){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("select * from curs where nume = ? or descriere = ?");
+            prstm.setString(1,des);
+            prstm.setString(2,des);
+            ResultSet rs = prstm.executeQuery();
+            if(rs.next()){
+                return rs.getInt("curs_id");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return -1;
     }
 
     public void searchCourse(String nume){
@@ -310,4 +435,6 @@ public class AdminGUI {
         }
         return false;
     }
+
+
 }
