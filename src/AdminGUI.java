@@ -1,4 +1,6 @@
 import javax.swing.*;
+import javax.swing.event.MenuEvent;
+import javax.swing.event.MenuListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -73,12 +75,30 @@ public class AdminGUI {
                 buildDeallocateProf();
             }
         });
+        JMenu user = new JMenu("Log Out");
+        user.addMenuListener(new MenuListener() {
+            @Override
+            public void menuSelected(MenuEvent e) {
+                admin.setVisible(false);
+                new LoginGui();
+            }
 
+            @Override
+            public void menuDeselected(MenuEvent e) {
+
+            }
+
+            @Override
+            public void menuCanceled(MenuEvent e) {
+
+            }
+        });
         menuCurs.add(creareCurs);
         menuCurs.add(cautareCurs);
         menuCurs.add(adaugareProfesor);
         menuCurs.add(stergereProfesor);
         bar.add(menuCurs);
+        bar.add(user);
         admin.getContentPane().setBackground(new Color(220,255,255));
         admin.setJMenuBar(bar);
         admin.setResizable(false);

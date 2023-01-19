@@ -1,15 +1,13 @@
 import javax.swing.*;
+import javax.swing.event.MenuEvent;
+import javax.swing.event.MenuListener;
 import javax.swing.table.DefaultTableModel;
-import javax.xml.transform.Result;
-import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Vector;
 
 public class StudentGui  {
@@ -24,20 +22,6 @@ public class StudentGui  {
         this.studentId = studentId;
         student = new GUI(900, 600).createFrame(studentId);
         student.setVisible(false);
-    }
-
-
-    //TO DO : inlocuire statement cu preparedStatement
-    public void evaluateInfo() throws SQLException {
-        //query al tabelei student
-        try {
-            String sql = "SELECT * FROM STUDENT WHERE ID_STUDENT = ";
-            sql = sql.concat(Integer.toString(studentId));
-            Statement statement = connection.createStatement();
-            ResultSet rs = statement.executeQuery(sql);
-        }catch(SQLException ex){
-            ex.printStackTrace();
-        }
     }
 
     public void displayGUI() throws SQLException {
@@ -59,16 +43,31 @@ public class StudentGui  {
         curs.add(adaugareCurs);
         curs.add(renuntareCurs);
         bar.add(curs);
+        JMenu user = new JMenu("Log Out");
+        user.addMenuListener(new MenuListener() {
+            @Override
+            public void menuSelected(MenuEvent e) {
+                student.setVisible(false);
+                new LoginGui();
+            }
 
+            @Override
+            public void menuDeselected(MenuEvent e) {
+
+            }
+
+            @Override
+            public void menuCanceled(MenuEvent e) {
+
+            }
+        });
         JMenu grup = new JMenu("Grupuri de studiu");
-        JMenuItem afisareGrupuri = new JMenuItem("Listare grupuri");
+        JMenuItem adaugareProfesor = new JMenuItem("Adaugare profesor");
         JMenuItem inscriereGrup  = new JMenuItem("Inscriere");
-        JMenuItem renuntareGrup = new JMenuItem("Renuntare");
         JMenuItem creareGrup = new JMenuItem("Creare");
-        grup.add(afisareGrupuri);
         grup.add(inscriereGrup);
-        grup.add(renuntareGrup);
         grup.add(creareGrup);
+        grup.add(adaugareProfesor);
         inscriereGrup.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -89,17 +88,18 @@ public class StudentGui  {
                 }
             }
         });
-        renuntareGrup.addActionListener(new ActionListener() {
+        adaugareProfesor.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                try {
-                    buildDropGS();
-                } catch (SQLException ex) {
+                try{
+                    buildAddProf();
+                } catch (Exception ex) {
                     throw new RuntimeException(ex);
                 }
             }
         });
         bar.add(grup);
+        bar.add(user);
 
         Statement statement = connection.createStatement();
         PreparedStatement prs = connection.prepareStatement("select* from intermediar_stud_curs left join curs on intermediar_stud_curs.ID_CURS = curs.curs_id where ID_STUDENT = ?");
@@ -120,11 +120,11 @@ public class StudentGui  {
             data.add(temp);
         }
 
-        String[][] cox = new String[data.size()][];
+        String[][] tmp = new String[data.size()][];
         for(int i= 0;i<data.size();i++){
-            cox[i] = data.get(i);
+            tmp[i] = data.get(i);
         }
-        JTable tableSugestii = new JTable(cox,column);
+        JTable tableSugestii = new JTable(tmp,column);
         tableSugestii.setPreferredScrollableViewportSize(tableSugestii.getPreferredSize());
         tableSugestii.setFillsViewportHeight(true);
         mainPanel.add(new JScrollPane(tableCursuri));
@@ -228,7 +228,6 @@ public class StudentGui  {
         f.setVisible(true);
 
         f.add(panel3);
-        f.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         f.setSize(300, 300);
         f.setVisible(true);
         f.setLocationRelativeTo(null);
@@ -268,9 +267,11 @@ public class StudentGui  {
                 JOptionPane.showMessageDialog(null, "Error!", "Error!", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            else if(h.before(Time.valueOf(LocalTime.now()))){
-                JOptionPane.showMessageDialog(null, "Error!", "Error!", JOptionPane.ERROR_MESSAGE);
-                return;
+            if(date.equals(temp)) {
+                 if (h.before(Time.valueOf(LocalTime.now()))) {
+                    JOptionPane.showMessageDialog(null, "Error!", "Error!", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
             }
             PreparedStatement prstm = connection.prepareStatement("select * from curs where nume = ?");
             prstm.setString(1, numeCurs);
@@ -302,8 +303,156 @@ public class StudentGui  {
         }
     }
 
-    public void buildShowGS(){
+    public void buildAddProf(){
+        try{
+            JTextField nume = new JTextField();
+            JTextField prenume = new JTextField();
+            JTextField grup = new JTextField(); //numele materiei
 
+            Object[] fields={
+                "Nume", nume,
+                "Prenume",prenume,
+                "Grup de studiu", grup
+            };
+
+            int option  = JOptionPane.showConfirmDialog(null, fields, "Adaugare profesor",JOptionPane.OK_CANCEL_OPTION );
+
+            if(option == JOptionPane.OK_OPTION){
+                String n = nume.getText();
+                String p = prenume.getText();
+                String g = grup.getText();
+
+                //identificare profesor
+                int profId = getProfId(n,p);
+                //identificare materie
+                int materie = getCourseId(g);
+                int gsId = checkCourse(materie);
+                if(profId!=-1 && gsId!=-1){
+                    if(checkProfCourse(profId,materie)) {
+                        //VERIFICARE DISPONIBILITATE PROFESOR
+                        if(checkProfAvailability(profId,materie,gsId)) {
+                            PreparedStatement prstm  = connection.prepareStatement("UPDATE grup_studiu set profesor = ? where ID_GS = ?");
+                            prstm.setInt(1,profId);
+                            prstm.setInt(2,gsId);
+                            prstm.executeUpdate();
+                            JOptionPane.showMessageDialog(null, "Profesorul a fost adaugat cu succes la grupul de studiu!",
+                                    "Adaugare profesor", JOptionPane.PLAIN_MESSAGE);
+                        }else{
+                            JOptionPane.showMessageDialog(null, "Profesorul nu este disponibil!", "Warning!", JOptionPane.WARNING_MESSAGE);
+                        }
+                    }else{
+                        JOptionPane.showMessageDialog(null, "Profesorul nu preda aceasta materie!", "Warning!", JOptionPane.WARNING_MESSAGE);
+                    }
+                }else{
+                    JOptionPane.showMessageDialog(null, "Profesorul sau cursul nu exista!", "Warning!", JOptionPane.WARNING_MESSAGE);
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public int getProfId(String nume, String prenume){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("SELECT * FROM utilizator where nume = ? and prenume = ? and rol = ?");
+            prstm.setString(1,nume);
+            prstm.setString(2,prenume);
+            prstm.setInt(3,3);
+            ResultSet rs = prstm.executeQuery();
+            if(rs.next()){
+                return rs.getInt("ID_USER");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return -1;
+    }
+
+    public boolean checkProfAvailability(int profId, int cursId, int gsId){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("SELECT * FROM grup_studiu where CURS = ?");
+            prstm.setInt(1,cursId);
+            ResultSet rs = prstm.executeQuery();
+            Date date = null;
+            Time time = null;
+            int durata = 0;
+
+            // data si ora pentru grup_studiu
+            if(rs.next()){
+                date = rs.getDate("DATE_TIME");
+                time = rs.getTime("ORA");
+                durata = rs.getInt("DURATA");
+            }
+
+            prstm = connection.prepareStatement("SELECT * FROM curs WHERE curs_id = ?");
+            prstm.setInt(1,cursId);
+            rs = prstm.executeQuery();
+            int tt = 0;
+            if(rs.next()){
+                tt = rs.getInt("TIME_TABLE");
+            }
+
+            Date dateA = null,dateB = null;
+            Time timett = null;
+            prstm = connection.prepareStatement("SELECT * FROM time_table WHERE ID_TT = ?");
+            prstm.setInt(1,tt);
+            rs = prstm.executeQuery();
+            if(rs.next()){
+                dateA = rs.getDate("DATE_A");
+                dateB = rs.getDate("DATE_B");
+                timett = rs.getTime("ORA");
+            }
+
+            //VERIFICARE
+            if(date!=null) {
+                if (date.after(dateA) && date.before(dateB)) {
+                    return checkTime(time, timett,durata);
+                }else if(date.equals(dateA)){
+                    return checkTime(time, timett, durata);
+                }
+                else if(date.equals(dateB)){
+                    return checkTime(time, timett, durata);
+                }
+                return false;
+            }
+
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return false;
+    }
+
+    public boolean checkTime(Time time, Time timett, int durata){
+        LocalTime temp = time.toLocalTime();
+        LocalTime temptt = timett.toLocalTime();
+        if(temp.equals(temptt)){
+            return false;
+        }
+        if(temp.plusHours(durata).isAfter(temptt.plusHours(2))){
+            return true;
+        }else if(temp.plusHours(durata).isBefore(temptt)){
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+
+    public boolean checkProfCourse(int profId, int cursId){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("SELECT * FROM intermediar_prof_curs where ID_PROFESOR = ? AND ID_CURS = ?");
+            prstm.setInt(1,profId);
+            prstm.setInt(2,cursId);
+            ResultSet rs = prstm.executeQuery();
+
+            if(rs.next()){
+                return true;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return false;
     }
 
     public void buildJoinGS() throws SQLException {
@@ -438,8 +587,9 @@ public class StudentGui  {
 
     public int getCourseId(String nume){
         try{
-            PreparedStatement prstm = connection.prepareStatement("select curs_id from curs where nume = ?");
+            PreparedStatement prstm = connection.prepareStatement("select curs_id from curs where nume = ? or descriere = ?");
             prstm.setString(1,nume);
+            prstm.setString(2,nume);
             ResultSet rs = prstm.executeQuery();
             if(rs.next()){
                 return(rs.getInt("curs_id"));
@@ -590,7 +740,6 @@ public class StudentGui  {
             throw new RuntimeException(e);
         }
     }
-
 
     public JComboBox<String> getCb() {
         return cb;
