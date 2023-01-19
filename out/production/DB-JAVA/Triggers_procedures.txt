@@ -1,0 +1,21 @@
+--DELETE STUDENT 
+CREATE DEFINER=`admin`@`localhost` PROCEDURE `delete_student`(IN student_cnp varchar(13))
+BEGIN
+    delete from utilizator where rol = 4 and utilizator.CNP = student_cnp;
+END
+
+--DELETE USER
+CREATE DEFINER=`admin`@`localhost` PROCEDURE `delete_user`(IN student_cnp varchar(13), IN user_rol int  )
+BEGIN
+    delete from utilizator where rol = user_rol and utilizator.CNP = student_cnp;
+END
+
+--UTILIZATOR INSERT  TRIGGER
+CREATE DEFINER=`admin`@`localhost` TRIGGER `utilizator_insert` AFTER INSERT ON `utilizator` FOR EACH ROW begin
+	if NEW.rol = 4 then insert into student(ID_STUDENT,nr_matricol)
+    values (new.ID_USER, "NULL");
+    end if;
+     if NEW.rol = 3 then insert into profesor(ID_PROFESOR)
+    values (utilizator.ID_USER);
+    end if;
+end
