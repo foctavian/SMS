@@ -1,10 +1,15 @@
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.xml.transform.Result;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Vector;
 
 public class StudentGui  {
@@ -103,7 +108,30 @@ public class StudentGui  {
         tableCursuri = new JTable(buildTableModel(result));
         tableCursuri.setPreferredScrollableViewportSize(tableCursuri.getPreferredSize());
         tableCursuri.setFillsViewportHeight(true);
+
+        Vector<Pair> sugestii = suggestion();
+        ArrayList<String[]> data = new ArrayList<>();
+        String column[] = {"ID", "NUME", "MATERIE"};
+        for(Pair x :sugestii){
+            String id = String.valueOf(x.getStudent());
+            String nume = getStudentName(x.getStudent());
+            String materie = getCourseName(x.getCurs());
+            String[] temp = {id,nume,materie};
+            data.add(temp);
+        }
+
+        String[][] cox = new String[data.size()][];
+        for(int i= 0;i<data.size();i++){
+            cox[i] = data.get(i);
+        }
+        JTable tableSugestii = new JTable(cox,column);
+        tableSugestii.setPreferredScrollableViewportSize(tableSugestii.getPreferredSize());
+        tableSugestii.setFillsViewportHeight(true);
         mainPanel.add(new JScrollPane(tableCursuri));
+        JLabel label = new JLabel("Sugetii de participanti pentru grupe de studiu: ");
+        mainPanel.add(label);
+        mainPanel.add(new JScrollPane(tableSugestii));
+        mainPanel.setLayout(new BoxLayout(mainPanel,BoxLayout.Y_AXIS));
         student.setResizable(false);
         student.setContentPane(mainPanel);
         student.setVisible(true);
@@ -368,16 +396,32 @@ public class StudentGui  {
         JPanel panel3 = new JPanel();
         JButton btn ;
         PreparedStatement prep = connection.prepareStatement
-                ("select * from (((intermediar_stud_curs left join grup_studiu on ID_CURS = CURS)inner join curs on CURS= curs_id)" +
-                        "right join intermediar_stud_gs on ID_STUD = ?)");
+                ("select * from intermediar_stud_curs where ID_STUDENT = ?");
         prep.setInt(1,studentId);
         ResultSet rs = prep.executeQuery();
-        Vector<String>cursVector = retrieveData(rs);
+        Vector<String>cursVector = new Vector<>();
+        Vector<Integer> cursuri = new Vector<>();
+        while(rs.next()){
+            cursuri.add(rs.getInt("ID_CURS"));
+        }
+        //vector cu id-urile cursurilor
+
+        for(int x:cursuri){
+            int id_gs = checkCourse(x);
+            if(id_gs!=-1){
+                //exista grup de studiu cu pentru acest curs
+                if(checkEnrollmentGS(x,0)) {
+                    cursVector.add(getCourseName(x));
+                }
+            }
+        }
+
+
         cb = new JComboBox<>(cursVector);
         cb.setLayout(null);
         cb.setBounds(50, 75, 200, 30);
         panel1.add(cb);
-        btn = new JButton("Renuntare grup de studiu");
+        btn = new JButton("Renuntare");
         btn.setLayout(null);
         btn.addActionListener(new DropGSListener(cursVector, studentId, this));
         panel2.add(btn);
@@ -390,6 +434,7 @@ public class StudentGui  {
         f.setVisible(true);
         f.setLocationRelativeTo(null);
     }
+
 
     public int getCourseId(String nume){
         try{
@@ -453,6 +498,21 @@ public class StudentGui  {
         return  -1;
     }
 
+    public String getStudentName(int id){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("SELECT * from utilizator where ID_USER = ?");
+            prstm.setInt(1,id);
+            ResultSet rs = prstm.executeQuery();
+
+            if(rs.next()){
+                return (rs.getString("nume")+" "+rs.getString("prenume"));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
     public boolean checkEnrollmentGS(int id){
         try{
             int gs = checkCourse(id);
@@ -468,6 +528,69 @@ public class StudentGui  {
             throw new RuntimeException(e);
         }
     }
+
+    public boolean checkEnrollmentGS(int id, int def){
+        try{
+            PreparedStatement prstm = connection.prepareStatement("SELECT * FROM intermediar_stud_gs where ID_STUD = ? AND ID_GS = ?");
+            prstm.setInt(1,studentId);
+            prstm.setInt(2,id);
+            ResultSet rs = prstm.executeQuery();
+
+            if(rs.next()){
+                return true;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return false;
+    }
+
+
+    //TOATE CURSURILE LA CARE SUNT INSCRIS
+    //TOATE CURSURILE LA CARE SUNT INSCRISI CEILALTI
+    //LA COLIZIUNI, DACA NU SUNT INSCRISI LA GRUPUL DE STUDIU , II SUGEREZ
+
+    public Vector<Pair> suggestion(){
+        //toate cursurile la care sunt inscris
+        try{
+            PreparedStatement prstm = connection.prepareStatement("SELECT * FROM intermediar_stud_curs where ID_STUDENT = ?");
+            prstm.setInt(1,studentId);
+            ResultSet rs = prstm.executeQuery();
+            Vector<Integer> cursuri = new Vector<>();
+            while(rs.next()) {
+                cursuri.add(rs.getInt("ID_CURS"));
+            }
+
+             //toate cursurile la care sunt inscrisi ceilalti
+            Vector<Pair> others= new Vector<>();
+
+            prstm = connection.prepareStatement("SELECT * FROM intermediar_stud_curs");
+            rs = prstm.executeQuery();
+            while(rs.next()){
+                if(rs.getInt("ID_STUDENT")!=studentId){
+                    others.add(new Pair(rs.getInt("ID_STUDENT"),rs.getInt("ID_CURS")));
+                }
+            }
+
+            //toate cursurile comune cu tot cu studenti
+            Vector<Pair> collision = new Vector<>();
+            for(int self:cursuri){
+                for(Pair oth:others){
+                    if(self == oth.getCurs()){
+                        if(checkCourse(self)!=-1){
+                            collision.add(oth);
+                        }
+                    }
+                }
+            }
+
+            return collision;
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 
     public JComboBox<String> getCb() {
         return cb;
